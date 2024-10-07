@@ -28,7 +28,20 @@ class test_modal(ui.Modal, title = "Test Modal"):
         embed.set_author(name = interaction.user, icon_url=interaction.user.avatar)
         await interaction.response.send_message(embed=embed)
 
+class PaginationTest(ui.View):
 
+    def __init__(self, roster):
+        self.roster = roster
+
+    current_page : int = 1
+    async def send(self, interaction):
+        self.message = await interaction.send(view=self)
+    
+    @discord.ui.button(label=">", style=discord.ButtonStyle.primary)
+    async def next_button(self, interaction:discord.Interaction, button:discord.ui.Button):
+        await interaction.response.defer()
+        self.current_page += 1
+        pass
 
 
 # class add_character_modal(ui.Modal, title = "Add Character"):
@@ -54,6 +67,12 @@ async def modal_test(interaction: discord.Interaction):
     await interaction.response.send_modal(test_modal())
 
 
+@bot.tree.command()
+async def pagination_test(interaction: discord.Interaction):
+    data = range(1,15)
+    pagination_view = PaginationTest()
+    pagination_view.data = data
+    await pagination_view.send(interaction)
 
 
 @bot.tree.command()
@@ -95,14 +114,12 @@ async def add_character(interaction: discord.Interaction, name: str, character_c
 
 
 @bot.tree.command()
-async def list_characters(interaction: discord.Interaction):
+async def roster(interaction: discord.Interaction):
     characters = ""
     c.execute("SELECT * FROM character WHERE user_id=?", (interaction.user.id,))
-    result = c.fetchone()
-    while result:
-        characters += result[1] + "\n"
-        result = c.fetchone()
-        #print(result)
+    result = c.fetchall()
+    for character in result:
+        characters += f"Character: {character[1]}, Class: {character[2]}, ilvl: {character[3]}\n"
     conn.commit()
     await interaction.response.send_message(f'{characters}')
 

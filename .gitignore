@@ -5,3 +5,4 @@ secret_info.py
 sqlite_demo.py
 example_bot.py
 command_test.py
+__pycache__/secret_info.cpython-311.pyc
