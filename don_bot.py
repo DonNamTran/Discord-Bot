@@ -29,19 +29,56 @@ class test_modal(ui.Modal, title = "Test Modal"):
         await interaction.response.send_message(embed=embed)
 
 class PaginationTest(ui.View):
-
-    def __init__(self, roster):
-        self.roster = roster
-
-    current_page : int = 1
+    current_page : int = 0
     async def send(self, interaction):
-        self.message = await interaction.send(view=self)
+        #self.message = await interaction.response.send_message(view=self)
+        self.update_buttons()
+        await interaction.response.send_message(embed=self.create_embed(self.data[self.current_page]), view=self)
+        #await self.update_message(self.data[self.current_page])
+
+    def create_embed(self, data):
+        embed = discord.Embed(title=f"Character #{self.current_page + 1}")
+        embed.add_field(name="Character Name", value=data[1])
+        embed.add_field(name="Character Class", value=data[2])
+        embed.add_field(name="Item Level", value=data[3])
+        embed.add_field(name="Gold Earning", value=data[4])
+        return embed
     
-    @discord.ui.button(label=">", style=discord.ButtonStyle.primary)
+    async def update_message(self, data, interaction: discord.Interaction):
+        self.update_buttons()
+        await interaction.response.edit_message(embed=self.create_embed(data), view=self)
+        #await self.message.edit(embed=self.create_embed(data), view=self)
+
+
+    def update_buttons(self):
+        if self.current_page == 0:
+            self.prev_button.disabled = True
+            self.prev_button.style = discord.ButtonStyle.gray
+        else:
+            self.prev_button.disabled = False
+            self.prev_button.style = discord.ButtonStyle.green
+
+        if self.current_page == len(self.data) - 1:
+            self.next_button.disabled = True
+            self.next_button.style = discord.ButtonStyle.gray
+        else:
+            self.next_button.disabled = False
+            self.next_button.style = discord.ButtonStyle.green
+
+
+
+    @discord.ui.button(label="<", style=discord.ButtonStyle.green)
+    async def prev_button(self, interaction:discord.Interaction, button:discord.ui.Button):
+        #await interaction.response.defer()
+        self.current_page -= 1
+        await self.update_message(self.data[self.current_page], interaction)
+
+    @discord.ui.button(label=">", style=discord.ButtonStyle.green)
     async def next_button(self, interaction:discord.Interaction, button:discord.ui.Button):
-        await interaction.response.defer()
+        #await interaction.response.defer()
         self.current_page += 1
-        pass
+        await self.update_message(self.data[self.current_page], interaction)
+
 
 
 # class add_character_modal(ui.Modal, title = "Add Character"):
@@ -69,7 +106,9 @@ async def modal_test(interaction: discord.Interaction):
 
 @bot.tree.command()
 async def pagination_test(interaction: discord.Interaction):
-    data = range(1,15)
+    #data = range(1,15)
+    c.execute("SELECT * FROM character WHERE user_id=?", (interaction.user.id,))
+    data = c.fetchall()
     pagination_view = PaginationTest()
     pagination_view.data = data
     await pagination_view.send(interaction)
@@ -98,7 +137,7 @@ async def add_character(interaction: discord.Interaction, name: str, character_c
     if c.rowcount >= 0:
         await interaction.response.send_message(f'{name} has been added to your list of characters!')
     else:
-        await interaction.response.send_message(f'Character was unsucessfully added.')
+        await interaction.response.send_message(f'Character was unsuccessfully added.')
 
 # #This command adds another character to the user's roster.
 # @bot.tree.command()
@@ -118,6 +157,7 @@ async def roster(interaction: discord.Interaction):
     characters = ""
     c.execute("SELECT * FROM character WHERE user_id=?", (interaction.user.id,))
     result = c.fetchall()
+    print(result)
     for character in result:
         characters += f"Character: {character[1]}, Class: {character[2]}, ilvl: {character[3]}\n"
     conn.commit()
