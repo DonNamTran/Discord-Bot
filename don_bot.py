@@ -31,9 +31,12 @@ class test_modal(ui.Modal, title = "Test Modal"):
 class PaginationTest(ui.View):
     current_page : int = 0
     async def send(self, interaction):
-        #self.message = await interaction.response.send_message(view=self)
+        #self.msg = interaction
+        #self.message = await .response.send_message(view=self)
         self.update_buttons()
         await interaction.response.send_message(embed=self.create_embed(self.data[self.current_page]), view=self)
+        self.message = await interaction.original_response()
+        #print('balls')
         #await self.update_message(self.data[self.current_page])
 
     def create_embed(self, data):
@@ -73,11 +76,19 @@ class PaginationTest(ui.View):
         self.current_page -= 1
         await self.update_message(self.data[self.current_page], interaction)
 
+    @discord.ui.button(emoji="🗑️")
+    async def delete_message(self, interaction:discord.Interaction, button:discord.ui.Button):
+        #await interaction.response.defer()
+        await self.message.delete()
+
+
     @discord.ui.button(label=">", style=discord.ButtonStyle.green)
     async def next_button(self, interaction:discord.Interaction, button:discord.ui.Button):
-        #await interaction.response.defer()
         self.current_page += 1
         await self.update_message(self.data[self.current_page], interaction)
+    
+
+        
 
 
 
