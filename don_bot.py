@@ -14,7 +14,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
-conn = sqlite3.connect('character.db')
+conn = sqlite3.connect('don_bot.db')
 c = conn.cursor()
 
 all_classes = Literal['Warrior (Male)', 'Warrior (Female)',
@@ -40,9 +40,9 @@ class PaginationTest(ui.View):
         #await self.update_message(self.data[self.current_page])
 
     def create_embed(self, data):
-        embed = discord.Embed(title=f"Character #{self.current_page + 1}")
-        embed.add_field(name="Character Name", value=data[1])
-        embed.add_field(name="Character Class", value=data[2])
+        embed = discord.Embed(title=f"{data[1]} - {data[2]}")
+        #embed.add_field(name="Character Name", value=data[1])
+        #embed.add_field(name="Character Class", value=data[2])
         embed.add_field(name="Item Level", value=data[3])
         embed.add_field(name="Gold Earning", value=data[4])
         return embed
@@ -50,7 +50,6 @@ class PaginationTest(ui.View):
     async def update_message(self, data, interaction: discord.Interaction):
         self.update_buttons()
         await interaction.response.edit_message(embed=self.create_embed(data), view=self)
-        #await self.message.edit(embed=self.create_embed(data), view=self)
 
 
     def update_buttons(self):
@@ -72,13 +71,11 @@ class PaginationTest(ui.View):
 
     @discord.ui.button(label="<", style=discord.ButtonStyle.green)
     async def prev_button(self, interaction:discord.Interaction, button:discord.ui.Button):
-        #await interaction.response.defer()
         self.current_page -= 1
         await self.update_message(self.data[self.current_page], interaction)
 
     @discord.ui.button(emoji="🗑️")
     async def delete_message(self, interaction:discord.Interaction, button:discord.ui.Button):
-        #await interaction.response.defer()
         await self.message.delete()
 
 
@@ -108,8 +105,6 @@ async def on_ready():
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('------')
 
-
-
 @bot.tree.command()
 async def modal_test(interaction: discord.Interaction):
     await interaction.response.send_modal(test_modal())
@@ -117,19 +112,19 @@ async def modal_test(interaction: discord.Interaction):
 
 @bot.tree.command()
 async def pagination_test(interaction: discord.Interaction):
-    #data = range(1,15)
     c.execute("SELECT * FROM character WHERE user_id=?", (interaction.user.id,))
     data = c.fetchall()
-    pagination_view = PaginationTest()
-    pagination_view.data = data
-    await pagination_view.send(interaction)
+    if not data:
+        await interaction.response.send_message('Your roster is empty!',ephemeral=True)
+    else:
+        pagination_view = PaginationTest()
+        pagination_view.data = data
+        await pagination_view.send(interaction)
 
 
 @bot.tree.command()
 async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(f'Hi, {interaction.user.mention}')
-
-
 
 
 #This command adds another character to the user's roster.
@@ -146,21 +141,26 @@ async def add_character(interaction: discord.Interaction, name: str, character_c
     c.execute("INSERT INTO character VALUES (?, ?, ?, ?, ?)", (interaction.user.id, name, character_class, item_level, gold))
     conn.commit()
     if c.rowcount >= 0:
-        await interaction.response.send_message(f'{name} has been added to your list of characters!')
+        await interaction.response.send_message(f'{name} has been added to your list of characters!', ephemeral=True)
     else:
-        await interaction.response.send_message(f'Character was unsuccessfully added.')
+        await interaction.response.send_message(f'Character was unsuccessfully added.', ephemeral=True)
 
-# #This command adds another character to the user's roster.
-# @bot.tree.command()
-# @app_commands.rename(character_class='class')
-# async def test_add_character(interaction: discord.Interaction, name: str, character_class: str, item_level: int, gold_earning: Literal['Yes', 'No']):
-#     #c.execute("INSERT INTO character VALUES (?, ?, ?, ?, ?)", (interaction.user.id, name, character_class, item_level, gold_earning))
-#     #conn.commit()
-#     #print(gold_earning)
-#    # if c.rowcount >= 0:
-#     await interaction.response.send_message(f'{name} has been added to your list of characters!')
-#     #else:
-#         #await interaction.response.send_message(f'Character was unsucessfully added.')
+#This command removes a character from your roster.
+@bot.tree.command()
+@app_commands.describe(
+    name='The name of the character',
+)
+async def remove_character(interaction: discord.Interaction, name: str):
+    c.execute("SELECT * FROM character WHERE character_name=?", (name,))
+    conn.commit()
+    data = c.fetchall()
+    if data:
+        c.execute("DELETE FROM character WHERE character_name=? AND user_id=?",(name, interaction.user.id))
+        conn.commit()
+        await interaction.response.send_message(f'{name} has been deleted from your roster.', ephemeral=True)
+    else:
+        await interaction.response.send_message(f'You do not have a character in your roster with that name!', ephemeral=True)
+
 
 
 @bot.tree.command()
@@ -173,8 +173,6 @@ async def roster(interaction: discord.Interaction):
         characters += f"Character: {character[1]}, Class: {character[2]}, ilvl: {character[3]}\n"
     conn.commit()
     await interaction.response.send_message(f'{characters}')
-
-
 
 
 #syncs the bot's commands to all guilds 
